@@ -1,4 +1,5 @@
-.idea
-.terraform
-.gradle
+/.idea
+/.terraform
 
+*.tfstate*
+*.tfvars
