@@ -200,6 +200,87 @@ resource "mongodbatlas_encryption_at_rest" "main" {
   }
 }
 
+resource "mongodbatlas_maintenance_window" "main" {
+  project_id  = var.project_id
+  day_of_week = 3
+  hour_of_day = 4
+}
+
+resource "mongodbatlas_cloud_provider_snapshot_backup_policy" "main" {
+  project_id   = var.project_id
+  cluster_name = mongodbatlas_cluster.main.name
+
+  reference_hour_of_day    = 3
+  reference_minute_of_hour = 45
+  restore_window_days      = 4
+
+  //Keep all 4 default policies but modify the units and values
+  //Could also just reflect the policy defaults here for later management
+  policies {
+    id = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.id
+
+    policy_item {
+      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.0.id
+      frequency_interval = 1
+      frequency_type     = "hourly"
+      retention_unit     = "days"
+      retention_value    = 1
+    }
+
+    policy_item {
+      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.1.id
+      frequency_interval = 1
+      frequency_type     = "daily"
+      retention_unit     = "days"
+      retention_value    = 2
+    }
+
+    policy_item {
+      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.2.id
+      frequency_interval = 4
+      frequency_type     = "weekly"
+      retention_unit     = "weeks"
+      retention_value    = 3
+    }
+
+    policy_item {
+      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.3.id
+      frequency_interval = 5
+      frequency_type     = "monthly"
+      retention_unit     = "months"
+      retention_value    = 4
+    }
+  }
+}
+
+resource "mongodbatlas_alert_configuration" "assert_regular" {
+  project_id = var.project_id
+  event_type = "OUTSIDE_METRIC_THRESHOLD"
+  enabled    = true
+
+  notification {
+    type_name     = "GROUP"
+    interval_min  = 5
+    delay_min     = 0
+    sms_enabled   = false
+    email_enabled = true
+    roles         = ["GROUP_CHARTS_ADMIN", "GROUP_CLUSTER_MANAGER"]
+  }
+
+  matcher {
+    field_name = "HOSTNAME_AND_PORT"
+    operator   = "EQUALS"
+    value      = "SECONDARY"
+  }
+
+  metric_threshold = {
+    metric_name = "ASSERT_REGULAR"
+    operator    = "LESS_THAN"
+    threshold   = 99.0
+    units       = "RAW"
+    mode        = "AVERAGE"
+  }
+}
 
 
 //resource "aws_instance" "bastion" {
