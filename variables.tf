@@ -7,11 +7,9 @@ variable "ami_name" {
 }
 
 variable "project_id" {
-  default = "5a056765c0c6e33bd1ac0cdf"
 }
 
 variable "org_id" {
-  default = "5a05659cd383ad74f1cc1047"
 }
 
 variable "cluster_name" {
@@ -26,9 +24,7 @@ variable "bastion_instance_type" {
   default = "t3.micro"
 }
 
-variable "bastion_ssh_key_name" {
-  default = "markbm"
-}
+variable "bastion_ssh_key_name" {}
 
 variable "cluster_type" {
   type = string
@@ -44,7 +40,5 @@ variable "cluster_type" {
 variable "tags" {
   description = "Optional map of tags to set on resources, defaults to empty map."
   type        = map(string)
-  default     = {
-    owner = "mark.baker-munton"
-  }
+  default     = { }
 }
