@@ -1,0 +1,59 @@
+{
+  "$or": [
+    {
+      "$and": [
+        {
+          "$or": [
+            {
+              "roles": {
+                "$elemMatch": {
+                  "role": "serviceRole",
+                  "db": "admin"
+                }
+              }
+            },
+            {
+              "users.user": {
+                "$in": [
+                  "mms-automation",
+                  "mms-monitoring-agent",
+                  "mms-backup-agent",
+                  "__system"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "atype": {
+            "$ne": "authCheck"
+          }
+        }
+      ]
+    },
+    {
+      "$and": [
+        {
+          "roles": {
+            "$nin": [
+              {
+                "role": "serviceRole",
+                "db": "admin"
+              }
+            ]
+          }
+        },
+        {
+          "users.user": {
+            "$nin": [
+              "mms-automation",
+              "mms-monitoring-agent",
+              "mms-backup-agent",
+              "__system"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
