@@ -3,7 +3,8 @@ variable "ami_owner" {
 }
 
 variable "ami_name" {
-  default = "amzn2-ami-hvm-*-x86_64-gp2"
+  //default = "amzn2-ami-hvm-*-x86_64-gp2"
+  default = "al2023-ami-2023.*-x86_64"
 }
 
 variable "project_id" {
