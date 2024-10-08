@@ -14,18 +14,16 @@ variable "org_id" {
 }
 
 variable "cluster_name" {
-  default = "tf-test"
+  default = "mbm-test"
 }
 
 variable "atlas_private_key" {}
 
 variable "atlas_public_key" {}
 
-variable "bastion_instance_type" {
-  default = "t3.micro"
-}
+variable "client_instance_type" {}
 
-variable "bastion_ssh_key_name" {}
+variable "client_ssh_key_name" {}
 
 variable "cluster_type" {
   type = string
@@ -36,6 +34,15 @@ variable "cluster_type" {
     condition     = contains(["REPLICASET", "SHARDED", "GEOSHARDED"], var.cluster_type)
     error_message = "Allowed values for cluster_type are \"REPLICASET\", \"SHARDED\", or \"GEOSHARDED\"."
   }
+}
+
+variable "gh_token" {
+  type = string
+}
+
+variable "cluster_tier" {
+  type = string
+  default = "M10"
 }
 
 variable "tags" {

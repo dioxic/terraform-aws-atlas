@@ -16,8 +16,8 @@ output "mongo_uri_with_options" {
 //}
 //
 
-output "bastion_public_ip" {
- value = aws_instance.bastion.public_ip
+output "client_public_ip" {
+ value = aws_instance.client.public_ip
 }
 
 # output "atlas_username" {

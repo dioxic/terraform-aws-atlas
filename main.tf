@@ -280,10 +280,10 @@ resource "random_password" "password" {
 //}
 
 
-resource "aws_instance" "bastion" {
+resource "aws_instance" "client" {
   ami           = data.aws_ami.base.id
-  instance_type = var.bastion_instance_type
-  key_name      = var.bastion_ssh_key_name
+  instance_type = var.client_instance_type
+  key_name      = var.client_ssh_key_name
   vpc_security_group_ids = [aws_security_group.main.id]
   subnet_id = element(
     local.subnet_ids,
@@ -297,7 +297,7 @@ resource "aws_instance" "bastion" {
 
   tags = merge(
     {
-      "Name" = "bastion-${var.cluster_name}"
+      "Name" = "client-${var.cluster_name}"
     },
     var.tags
   )
@@ -317,11 +317,11 @@ resource "mongodbatlas_cluster" "main" {
 
   //Provider Settings "block"
   provider_name               = "AWS"
-  disk_size_gb                = 50
+  disk_size_gb                = 500
   #provider_disk_iops          = 100
   provider_volume_type        = "STANDARD"
   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
-  provider_instance_size_name = "M10"
+  provider_instance_size_name = var.cluster_tier
   provider_region_name        = "EU_WEST_1"
 
   //advanced settings
