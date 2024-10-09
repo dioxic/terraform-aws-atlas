@@ -51,16 +51,16 @@ data "http" "my_public_ip" {
   }
 }
 
-//data "template_file" "bootstrap" {
-//  template = file("${path.module}/scripts/bootstrap.sh")
-//}
-
 data "cloudinit_config" "config" {
   base64_encode = true
   gzip          = true
   part {
     content_type = "text/x-shellscript"
-    content = file("${path.module}/scripts/bootstrap.sh")
+    content = templatefile("${path.module}/scripts/bootstrap.sh", {
+      gh_token = var.gh_token
+      uri = length(local.connection_strings) > 0 ? local.connection_strings[0] : ""
+      # uri = lookup(mongodbatlas_cluster.main.connection_strings.private_endpoint, aws_vpc_endpoint.ptfe_service.id)["srv_connection_string"]
+    })
   }
 }
 
@@ -68,7 +68,14 @@ locals {
   vpc_id = data.aws_vpc.default.id
   subnet_ids = tolist(data.aws_subnets.default.ids)
   ifconfig = jsondecode(data.http.my_public_ip.response_body)
+  private_endpoints = flatten([for cs in mongodbatlas_cluster.main.connection_strings : cs.private_endpoint])
+  connection_strings = [
+    for pe in local.private_endpoints : pe.srv_connection_string
+    if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id)
+  ]
 }
+
+# ----------------------- Security Groups ------------------------------
 
 resource "aws_security_group" "main" {
   name_prefix = "atlas-sg-"
@@ -121,6 +128,8 @@ resource "aws_security_group_rule" "egress" {
  security_group_id = aws_security_group.main.id
 }
 
+# -------------------- Private Link ----------------------
+
 resource "mongodbatlas_privatelink_endpoint" "main" {
   project_id    = var.project_id
   provider_name = "AWS"
@@ -148,137 +157,54 @@ resource "mongodbatlas_privatelink_endpoint_service" "main" {
   provider_name       = "AWS"
 }
 
+# ------------------ Atlas Access List ------------------------------
+
+resource "mongodbatlas_project_ip_access_list" "test" {
+  project_id = var.project_id
+  ip_address = local.ifconfig["ip"]
+  comment    = "terraform"
+}
+
+# ------------------ Atlas Database User ----------------------------
+
 resource "random_password" "password" {
   length           = 16
   special          = true
   override_special = "_%@"
 }
 
-# resource "mongodbatlas_database_user" "root" {
-#   username           = "root"
-#   password           = random_password.password.result
-#   project_id         = var.project_id
-#   auth_database_name = "admin"
-#
-#   roles {
-#     role_name     = "dba"
-#     database_name = "admin"
-#   }
+resource "mongodbatlas_database_user" "root" {
+  username           = "tf"
+  password           = random_password.password.result
+  project_id         = var.project_id
+  auth_database_name = "admin"
+
+  roles {
+    role_name     = "atlasAdmin"
+    database_name = "admin"
+  }
+}
+
+# resource "mongodbatlas_auditing" "test" {
+#  project_id                  = var.project_id
+#  audit_filter                = file("${path.module}/config/audit-filter.json")
+#  audit_authorization_success = true
+#  enabled                     = true
 # }
 
-# resource "mongodbatlas_database_user" "service" {
-#   username           = "myService"
-#   password           = random_password.password.result
-#   project_id         = var.project_id
-#   auth_database_name = "admin"
+# resource "mongodbatlas_encryption_at_rest" "main" {
+#  project_id = var.project_id
 #
-#   roles {
-#     role_name     = "service"
-#     database_name = "admin"
-#   }
+#  aws_kms = {
+#    enabled                = true
+#    access_key_id          = "AKIAIOSFODNN7EXAMPLE"
+#    secret_access_key      = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+#    customer_master_key_id = "030gce02-586d-48d2-a966-05ea954fde0g"
+#    region                 = "US_EAST_1"
+#  }
 # }
 
-//resource "mongodbatlas_auditing" "test" {
-//  project_id                  = var.project_id
-//  audit_filter                = file("${path.module}/config/audit-filter.json")
-//  audit_authorization_success = true
-//  enabled                     = true
-//}
-//
-//resource "mongodbatlas_encryption_at_rest" "main" {
-//  project_id = var.project_id
-//
-//  aws_kms = {
-//    enabled                = true
-//    access_key_id          = "AKIAIOSFODNN7EXAMPLE"
-//    secret_access_key      = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-//    customer_master_key_id = "030gce02-586d-48d2-a966-05ea954fde0g"
-//    region                 = "US_EAST_1"
-//  }
-//}
-//
-//resource "mongodbatlas_maintenance_window" "main" {
-//  project_id  = var.project_id
-//  day_of_week = 3
-//  hour_of_day = 4
-//}
-//
-//resource "mongodbatlas_cloud_provider_snapshot_backup_policy" "main" {
-//  project_id   = var.project_id
-//  cluster_name = mongodbatlas_cluster.main.name
-//
-//  reference_hour_of_day    = 3
-//  reference_minute_of_hour = 45
-//  restore_window_days      = 4
-//
-//  //Keep all 4 default policies but modify the units and values
-//  //Could also just reflect the policy defaults here for later management
-//  policies {
-//    id = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.id
-//
-//    policy_item {
-//      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.0.id
-//      frequency_interval = 1
-//      frequency_type     = "hourly"
-//      retention_unit     = "days"
-//      retention_value    = 1
-//    }
-//
-//    policy_item {
-//      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.1.id
-//      frequency_interval = 1
-//      frequency_type     = "daily"
-//      retention_unit     = "days"
-//      retention_value    = 2
-//    }
-//
-//    policy_item {
-//      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.2.id
-//      frequency_interval = 4
-//      frequency_type     = "weekly"
-//      retention_unit     = "weeks"
-//      retention_value    = 3
-//    }
-//
-//    policy_item {
-//      id                 = mongodbatlas_cluster.main.snapshot_backup_policy.0.policies.0.policy_item.3.id
-//      frequency_interval = 5
-//      frequency_type     = "monthly"
-//      retention_unit     = "months"
-//      retention_value    = 4
-//    }
-//  }
-//}
-//
-//resource "mongodbatlas_alert_configuration" "assert_regular" {
-//  project_id = var.project_id
-//  event_type = "OUTSIDE_METRIC_THRESHOLD"
-//  enabled    = true
-//
-//  notification {
-//    type_name     = "GROUP"
-//    interval_min  = 5
-//    delay_min     = 0
-//    sms_enabled   = false
-//    email_enabled = true
-//    roles         = ["GROUP_CHARTS_ADMIN", "GROUP_CLUSTER_MANAGER"]
-//  }
-//
-//  matcher {
-//    field_name = "HOSTNAME_AND_PORT"
-//    operator   = "EQUALS"
-//    value      = "SECONDARY"
-//  }
-//
-//  metric_threshold = {
-//    metric_name = "ASSERT_REGULAR"
-//    operator    = "LESS_THAN"
-//    threshold   = 99.0
-//    units       = "RAW"
-//    mode        = "AVERAGE"
-//  }
-//}
-
+# --------------- AWS EC2 ---------------------
 
 resource "aws_instance" "client" {
   ami           = data.aws_ami.base.id
@@ -292,7 +218,7 @@ resource "aws_instance" "client" {
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 30
+    volume_size = 50
   }
 
   tags = merge(
@@ -307,6 +233,7 @@ resource "aws_instance" "client" {
 }
 
 resource "mongodbatlas_cluster" "main" {
+  depends_on = [mongodbatlas_privatelink_endpoint_service.main]
   project_id   = var.project_id
   name         = var.cluster_name
   cluster_type = var.cluster_type

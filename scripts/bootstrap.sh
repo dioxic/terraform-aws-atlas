@@ -12,12 +12,19 @@ EOF
 sudo yum install -y cyrus-sasl cyrus-sasl-gssapi cyrus-sasl-plain krb5-libs libcurl net-snmp openldap openssl xz-libs
 sudo yum install -y mongodb-mongosh-shared-openssl3 java-22-amazon-corretto java-1.8.0-amazon-corretto.x86_64 git
 
+type -p yum-config-manager >/dev/null || sudo yum install yum-utils
+sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+sudo yum install -y gh
+
 cd /home/ec2-user
-git clone https://github.com/dioxic/typhon.git -b chase
+gh auth login --with-token ${gh_token}
+gh repo clone typhon -- -b chase
 cd typhon
 ./gradlew installdist
 
 cat <<EOF >> /home/ec2-user/.bashrc
 alias ty="/home/ec2-user/typhon/build/install/cli/bin/typhon"
 alias msh="mongosh"
+export URI="${uri}"
+export GH_TOKEN="${gh_token}"
 EOF
