@@ -14,7 +14,6 @@ variable "org_id" {
 }
 
 variable "cluster_name" {
-  default = "mbm-test"
 }
 
 variable "atlas_private_key" {}
