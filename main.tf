@@ -68,7 +68,7 @@ locals {
   vpc_id = data.aws_vpc.default.id
   subnet_ids = tolist(data.aws_subnets.default.ids)
   ifconfig = jsondecode(data.http.my_public_ip.response_body)
-  private_endpoints = flatten([for cs in mongodbatlas_cluster.main.connection_strings : cs.private_endpoint])
+  private_endpoints = flatten([for cs in mongodbatlas_cluster.main4.connection_strings : cs.private_endpoint])
   connection_strings = [
     for pe in local.private_endpoints : pe.srv_connection_string
     if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id)
@@ -206,9 +206,87 @@ resource "mongodbatlas_database_user" "root" {
 
 # --------------- AWS EC2 ---------------------
 
-resource "aws_instance" "client" {
+# resource "aws_instance" "client" {
+#   ami           = data.aws_ami.base.id
+#   instance_type = var.client_instance_type
+#   key_name      = var.client_ssh_key_name
+#   vpc_security_group_ids = [aws_security_group.main.id]
+#   subnet_id = element(
+#     local.subnet_ids,
+#     0
+#   )
+#
+#   root_block_device {
+#     volume_type = "gp3"
+#     volume_size = 50
+#   }
+#
+#   tags = merge(
+#     {
+#       "Name" = "client-${var.cluster_name}"
+#     },
+#     var.tags
+#   )
+#
+#   user_data = data.cloudinit_config.config.rendered
+#   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
+# }
+
+# resource "aws_instance" "client2" {
+#   ami           = data.aws_ami.base.id
+#   instance_type = var.client2_instance_type
+#   key_name      = var.client_ssh_key_name
+#   vpc_security_group_ids = [aws_security_group.main.id]
+#   subnet_id = element(
+#     local.subnet_ids,
+#     0
+#   )
+#
+#   root_block_device {
+#     volume_type = "gp3"
+#     volume_size = 50
+#   }
+#
+#   tags = merge(
+#     {
+#       "Name" = "client-${var.cluster2_name}"
+#     },
+#     var.tags
+#   )
+#
+#   user_data = data.cloudinit_config.config.rendered
+#   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
+# }
+
+# resource "aws_instance" "client3" {
+#   ami           = data.aws_ami.base.id
+#   instance_type = var.client3_instance_type
+#   key_name      = var.client_ssh_key_name
+#   vpc_security_group_ids = [aws_security_group.main.id]
+#   subnet_id = element(
+#     local.subnet_ids,
+#     0
+#   )
+#
+#   root_block_device {
+#     volume_type = "gp3"
+#     volume_size = 50
+#   }
+#
+#   tags = merge(
+#     {
+#       "Name" = "client-${var.cluster3_name}"
+#     },
+#     var.tags
+#   )
+#
+#   user_data = data.cloudinit_config.config.rendered
+#   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
+# }
+
+resource "aws_instance" "client4" {
   ami           = data.aws_ami.base.id
-  instance_type = var.client_instance_type
+  instance_type = var.client4_instance_type
   key_name      = var.client_ssh_key_name
   vpc_security_group_ids = [aws_security_group.main.id]
   subnet_id = element(
@@ -223,7 +301,7 @@ resource "aws_instance" "client" {
 
   tags = merge(
     {
-      "Name" = "client-${var.cluster_name}"
+      "Name" = "client-${var.cluster4_name}"
     },
     var.tags
   )
@@ -232,24 +310,110 @@ resource "aws_instance" "client" {
   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
 }
 
-resource "mongodbatlas_cluster" "main" {
+# resource "mongodbatlas_cluster" "main" {
+#   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
+#   project_id   = var.project_id
+#   name         = var.cluster_name
+#   cluster_type = var.cluster_type
+#
+#   replication_factor           = 3
+#   mongo_db_major_version = "8.0"
+#   paused = true
+#
+#   //Provider Settings "block"
+#   provider_name               = "AWS"
+#   disk_size_gb                = var.cluster_disk_size
+#   #provider_disk_iops          = 100
+#   provider_volume_type        = "STANDARD"
+#   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
+#   provider_instance_size_name = var.cluster_tier
+#   provider_region_name        = "EU_WEST_1"
+#   auto_scaling_compute_enabled = false
+#   auto_scaling_disk_gb_enabled = false
+#
+#   //advanced settings
+#   advanced_configuration {
+#     javascript_enabled           = false
+#     minimum_enabled_tls_protocol = "TLS1_2"
+#   }
+# }
+#
+# resource "mongodbatlas_cluster" "main2" {
+#   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
+#   project_id   = var.project_id
+#   name         = var.cluster2_name
+#   cluster_type = var.cluster_type
+#
+#   replication_factor           = 3
+#   mongo_db_major_version = "8.0"
+#   paused = true
+#   //Provider Settings "block"
+#
+#   provider_name               = "AWS"
+#   disk_size_gb                = var.cluster2_disk_size
+#   #provider_disk_iops          = 100
+#   provider_volume_type        = "STANDARD"
+#   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
+#   provider_instance_size_name = var.cluster2_tier
+#   provider_region_name        = "EU_WEST_1"
+#   auto_scaling_compute_enabled = false
+#   auto_scaling_disk_gb_enabled = false
+#
+#   //advanced settings
+#   advanced_configuration {
+#     javascript_enabled           = false
+#     minimum_enabled_tls_protocol = "TLS1_2"
+#   }
+# }
+#
+# resource "mongodbatlas_cluster" "main3" {
+#   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
+#   project_id   = var.project_id
+#   name         = var.cluster3_name
+#   cluster_type = var.cluster_type
+#
+#   replication_factor           = 3
+#   mongo_db_major_version = "8.0"
+#   paused = true
+#   //Provider Settings "block"
+#
+#   provider_name               = "AWS"
+#   disk_size_gb                = var.cluster3_disk_size
+#   #provider_disk_iops          = 100
+#   provider_volume_type        = "STANDARD"
+#   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
+#   provider_instance_size_name = var.cluster3_tier
+#   provider_region_name        = "EU_WEST_1"
+#   auto_scaling_compute_enabled = false
+#   auto_scaling_disk_gb_enabled = false
+#
+#   //advanced settings
+#   advanced_configuration {
+#     javascript_enabled           = false
+#     minimum_enabled_tls_protocol = "TLS1_2"
+#   }
+# }
+
+resource "mongodbatlas_cluster" "main4" {
   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
   project_id   = var.project_id
-  name         = var.cluster_name
+  name         = var.cluster4_name
   cluster_type = var.cluster_type
 
   replication_factor           = 3
-  auto_scaling_disk_gb_enabled = true
   mongo_db_major_version = "7.0"
-
+  paused = false
   //Provider Settings "block"
+
   provider_name               = "AWS"
-  disk_size_gb                = 500
+  disk_size_gb                = var.cluster4_disk_size
   #provider_disk_iops          = 100
   provider_volume_type        = "STANDARD"
   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
-  provider_instance_size_name = var.cluster_tier
+  provider_instance_size_name = var.cluster4_tier
   provider_region_name        = "EU_WEST_1"
+  auto_scaling_compute_enabled = false
+  auto_scaling_disk_gb_enabled = false
 
   //advanced settings
   advanced_configuration {
