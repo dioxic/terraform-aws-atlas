@@ -36,14 +36,23 @@ variable "client4_instance_type" {}
 variable "client_ssh_key_name" {}
 
 variable "cluster_type" {
-  type = string
+  type        = string
   description = "type of cluster, one of REPLICASET, SHARDED, GEOSHARDED"
-  default = "REPLICASET"
+  default     = "REPLICASET"
 
   validation {
-    condition     = contains(["REPLICASET", "SHARDED", "GEOSHARDED"], var.cluster_type)
+    condition = contains(["REPLICASET", "SHARDED", "GEOSHARDED"], var.cluster_type)
     error_message = "Allowed values for cluster_type are \"REPLICASET\", \"SHARDED\", or \"GEOSHARDED\"."
   }
+}
+
+variable "cluster_map" {
+  type = list(object({
+    cluster_tier = string
+    cluster_type = string
+    cluster_disk_size = string
+    client_instance_type = string
+  }))
 }
 
 variable "gh_token" {
@@ -51,7 +60,7 @@ variable "gh_token" {
 }
 
 variable "cluster_tier" {
-  type = string
+  type    = string
   default = "M10"
 }
 
@@ -85,6 +94,6 @@ variable "cluster4_tier" {
 
 variable "tags" {
   description = "Optional map of tags to set on resources, defaults to empty map."
-  type        = map(string)
-  default     = { }
+  type = map(string)
+  default = {}
 }
