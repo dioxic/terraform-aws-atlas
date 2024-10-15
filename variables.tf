@@ -13,25 +13,9 @@ variable "project_id" {
 variable "org_id" {
 }
 
-variable "cluster_name" {}
-
-variable "cluster2_name" {}
-
-variable "cluster3_name" {}
-
-variable "cluster4_name" {}
-
 variable "atlas_private_key" {}
 
 variable "atlas_public_key" {}
-
-variable "client_instance_type" {}
-
-variable "client2_instance_type" {}
-
-variable "client3_instance_type" {}
-
-variable "client4_instance_type" {}
 
 variable "client_ssh_key_name" {}
 
@@ -48,6 +32,7 @@ variable "cluster_type" {
 
 variable "cluster_map" {
   type = list(object({
+    cluster_name = string
     cluster_tier = string
     cluster_type = string
     cluster_disk_size = string
@@ -56,39 +41,6 @@ variable "cluster_map" {
 }
 
 variable "gh_token" {
-  type = string
-}
-
-variable "cluster_tier" {
-  type    = string
-  default = "M10"
-}
-
-variable "cluster_disk_size" {
-  type = number
-}
-
-variable "cluster2_disk_size" {
-  type = number
-}
-
-variable "cluster2_tier" {
-  type = string
-}
-
-variable "cluster3_disk_size" {
-  type = number
-}
-
-variable "cluster3_tier" {
-  type = string
-}
-
-variable "cluster4_disk_size" {
-  type = number
-}
-
-variable "cluster4_tier" {
   type = string
 }
 
