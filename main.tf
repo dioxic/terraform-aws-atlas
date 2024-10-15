@@ -201,7 +201,7 @@ resource "mongodbatlas_database_user" "root" {
 resource "aws_instance" "client" {
   for_each      = local.cluster_map
   ami           = data.aws_ami.base.id
-  instance_type = each.value.client_instance_type
+  instance_type = each.value["client_instance_type"]
   key_name      = var.client_ssh_key_name
   vpc_security_group_ids = [aws_security_group.main.id]
   subnet_id = element(
@@ -216,7 +216,7 @@ resource "aws_instance" "client" {
 
   tags = merge(
     {
-      "Name" = "client-${each.value.cluster_name}"
+      "Name" = "client-${each.value["cluster_name"]}"
     },
     var.tags
   )
@@ -229,21 +229,21 @@ resource "mongodbatlas_cluster" "main" {
   for_each     = local.cluster_map
   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
   project_id   = var.project_id
-  name         = each.value.cluster_name
-  cluster_type = each.value.cluster_type
+  name         = each.key
+  cluster_type = each.value["cluster_type"]
 
   replication_factor     = 3
-  mongo_db_major_version = each.value.cluster_version
-  paused = each.value.cluster_paused
-  cloud_backup = each.value.cluster_backup
+  mongo_db_major_version = each.value["cluster_version"]
+  paused = each.value["cluster_paused"]
+  cloud_backup = each.value["cluster_backup"]
 
   //Provider Settings "block"
   provider_name                = "AWS"
-  disk_size_gb = each.value.cluster_disk_size
+  disk_size_gb = each.value["cluster_disk_size"]
   #provider_disk_iops          = 100
   provider_volume_type         = "STANDARD"
   encryption_at_rest_provider = "NONE" // change to AWS to use CMK
-  provider_instance_size_name  = each.value.cluster_tier
+  provider_instance_size_name  = each.value["cluster_tier"]
   provider_region_name         = "EU_WEST_1"
   auto_scaling_compute_enabled = false
   auto_scaling_disk_gb_enabled = false
