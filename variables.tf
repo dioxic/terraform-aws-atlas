@@ -7,11 +7,9 @@ variable "ami_name" {
   default = "al2023-ami-2023.*-x86_64"
 }
 
-variable "project_id" {
-}
+variable "project_id" {}
 
-variable "org_id" {
-}
+variable "org_id" {}
 
 variable "atlas_private_key" {}
 
@@ -30,14 +28,20 @@ variable "cluster_type" {
   }
 }
 
-variable "cluster_map" {
+variable "clusters" {
   type = list(object({
     cluster_name = string
+    cluster_paused = bool
+    cluster_backup = bool
     cluster_tier = string
     cluster_type = string
+    cluster_version = string
     cluster_disk_size = string
     client_instance_type = string
   }))
+  # default = [{
+  #   cluster_paused = false
+  # }]
 }
 
 variable "gh_token" {
