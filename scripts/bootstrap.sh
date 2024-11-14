@@ -26,5 +26,6 @@ cat <<EOF >> /home/ec2-user/.bashrc
 alias ty="/home/ec2-user/typhon/build/install/cli/bin/typhon"
 alias msh="mongosh"
 export URI="${uri}"
+export STATS_URI="${uri}"
 export GH_TOKEN="${gh_token}"
 EOF
