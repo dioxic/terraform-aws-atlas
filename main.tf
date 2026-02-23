@@ -5,6 +5,9 @@ provider "mongodbatlas" {
 
 provider "aws" {
   region = "eu-west-1"
+  default_tags {
+    tags = var.tags
+  }
 }
 
 data "aws_region" "current" {}
@@ -51,30 +54,43 @@ data "http" "my_public_ip" {
   }
 }
 
+locals {
+  vpc_id      = data.aws_vpc.default.id
+  subnet_ids = tolist(data.aws_subnets.default.ids)
+  ifconfig = jsondecode(data.http.my_public_ip.response_body)
+  cluster_map = {for v in var.clusters : v.cluster_name => v}
+  client_map  = {
+    for v in var.clients : v.client_name => merge(v, {
+      uri       = join("", [var.uri_prefix, v.client_name, var.uri_suffix])
+      stats_uri = join("", [var.uri_prefix, "stats", var.uri_suffix])
+    })
+  }
+  cluster_private_srv = {
+    for k, v in mongodbatlas_cluster.main : k =>
+      length(v.connection_strings) > 0 ? length(v.connection_strings[0].private_endpoint) > 0 ?
+      v.connection_strings[0].private_endpoint[0]["srv_connection_string"] : "" : ""
+  }
+  # cluster_pl_srv = { for k, v in local.cluster_private_endpoints : k =>
+  #   [ for pe in v : v.srv_connection_string if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id) ]
+  # }
+  # connection_strings = [
+  #   for pe in local.private_endpoints : pe.srv_connection_string
+  #   if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id)
+  # ]
+}
+
 data "cloudinit_config" "config" {
+  for_each      = local.client_map
   base64_encode = true
   gzip          = true
   part {
     content_type = "text/x-shellscript"
     content = templatefile("${path.module}/scripts/bootstrap.sh", {
-      gh_token = var.gh_token
-      uri = ""
-      # uri      = length(local.connection_strings) > 0 ? local.connection_strings[0] : ""
-      # uri = lookup(mongodbatlas_cluster.main.connection_strings.private_endpoint, aws_vpc_endpoint.ptfe_service.id)["srv_connection_string"]
+      gh_token  = var.gh_token
+      uri       = local.client_map[each.key]["uri"]
+      stats_uri = local.client_map[each.key]["stats_uri"]
     })
   }
-}
-
-locals {
-  vpc_id             = data.aws_vpc.default.id
-  subnet_ids = tolist(data.aws_subnets.default.ids)
-  ifconfig = jsondecode(data.http.my_public_ip.response_body)
-  cluster_map = { for v in var.clusters : v.cluster_name => v }
-  # private_endpoints = flatten([for cs in mongodbatlas_cluster.main.connection_strings : cs.private_endpoint])
-  # connection_strings = [
-  #   for pe in local.private_endpoints : pe.srv_connection_string
-  #   if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id)
-  # ]
 }
 
 # ----------------------- Security Groups ------------------------------
@@ -139,7 +155,7 @@ resource "aws_vpc_endpoint" "ptfe_service" {
   vpc_endpoint_type = "Interface"
   subnet_ids        = local.subnet_ids
   security_group_ids = [aws_security_group.main.id]
-  tags              = var.tags
+  # tags              = var.tags
 }
 
 resource "mongodbatlas_privatelink_endpoint_service" "main" {
@@ -199,29 +215,21 @@ resource "mongodbatlas_database_user" "root" {
 # --------------- AWS EC2 ---------------------
 
 resource "aws_instance" "client" {
-  for_each      = local.cluster_map
+  for_each      = local.client_map
   ami           = data.aws_ami.base.id
   instance_type = each.value["client_instance_type"]
   key_name      = var.client_ssh_key_name
   vpc_security_group_ids = [aws_security_group.main.id]
-  subnet_id = element(
-    local.subnet_ids,
-    0
-  )
+  subnet_id = local.subnet_ids[0]
 
   root_block_device {
     volume_type = "gp3"
     volume_size = 50
   }
 
-  tags = merge(
-    {
-      "Name" = "client-${each.value["cluster_name"]}"
-    },
-    var.tags
-  )
+  tags = { "Name" = "client-${each.value["client_name"]}" }
 
-  user_data = data.cloudinit_config.config.rendered
+  user_data = data.cloudinit_config.config[each.key].rendered
   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
 }
 
@@ -234,15 +242,16 @@ resource "mongodbatlas_cluster" "main" {
 
   replication_factor     = 3
   mongo_db_major_version = each.value["cluster_version"]
-  paused = each.value["cluster_paused"]
-  cloud_backup = each.value["cluster_backup"]
+  paused                 = each.value["cluster_paused"]
+  cloud_backup           = each.value["cluster_backup"]
+  num_shards = each.value["cluster_num_shards"]
 
   //Provider Settings "block"
   provider_name                = "AWS"
   disk_size_gb = each.value["cluster_disk_size"]
-  #provider_disk_iops          = 100
-  provider_volume_type         = "STANDARD"
-  encryption_at_rest_provider = "NONE" // change to AWS to use CMK
+  provider_disk_iops          = each.value["cluster_disk_iops"]
+  provider_volume_type        = each.value["cluster_volume_type"]
+  # encryption_at_rest_provider = "NONE" // change to AWS to use CMK
   provider_instance_size_name  = each.value["cluster_tier"]
   provider_region_name         = "EU_WEST_1"
   auto_scaling_compute_enabled = false

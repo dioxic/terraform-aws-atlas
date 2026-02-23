@@ -9,7 +9,9 @@ output "clusters" {
     for k, v in mongodbatlas_cluster.main : k => {
       name = v.name,
       tier = v.provider_instance_size_name,
-      private_link_srv = flatten([for cs in v.connection_strings : cs.private_endpoint])
+      private_link_srv = local.cluster_private_srv[k]
+      # private_link_srv = flatten([for cs in v.connection_strings : cs.private_endpoint])
+      # private_link_srv = v.connection_strings[0]["private_endpoint"]["srv_connection_string"]
       srv = v.mongo_uri
     }
   }

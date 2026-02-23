@@ -30,21 +30,35 @@ variable "cluster_type" {
 
 variable "clusters" {
   type = list(object({
-    cluster_name = string
-    cluster_paused = bool
-    cluster_backup = bool
-    cluster_tier = string
-    cluster_type = string
-    cluster_version = string
-    cluster_disk_size = string
+    cluster_name         = string
+    cluster_paused       = bool
+    cluster_backup       = bool
+    cluster_tier         = string
+    cluster_type         = string
+    cluster_num_shards   = number
+    cluster_version      = string
+    cluster_volume_type  = optional(string)
+    cluster_disk_size    = optional(number)
+    cluster_disk_iops    = optional(number)
+  }))
+}
+
+variable "clients" {
+  type = list(object({
+    client_name         = string
     client_instance_type = string
   }))
-  # default = [{
-  #   cluster_paused = false
-  # }]
 }
 
 variable "gh_token" {
+  type = string
+}
+
+variable "uri_prefix" {
+  type = string
+}
+
+variable "uri_suffix" {
   type = string
 }
 
