@@ -6,13 +6,14 @@
 
 output "clusters" {
   value = {
-    for k, v in mongodbatlas_cluster.main : k => {
+    for k, v in mongodbatlas_advanced_cluster.main : k => {
       name = v.name,
-      tier = v.provider_instance_size_name,
-      private_link_srv = local.cluster_private_srv[k]
+      tier = v.replication_specs[0].region_configs[0].electable_specs.instance_size,
+      # private_link_srv = local.cluster_private_srv[k]
       # private_link_srv = flatten([for cs in v.connection_strings : cs.private_endpoint])
       # private_link_srv = v.connection_strings[0]["private_endpoint"]["srv_connection_string"]
-      srv = v.mongo_uri
+      private_srv = length(v.connection_strings.private_endpoint) == 1 ? v.connection_strings.private_endpoint[0].srv_connection_string : ""
+      standard_srv = v.connection_strings.standard_srv
     }
   }
 }

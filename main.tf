@@ -65,11 +65,16 @@ locals {
       stats_uri = join("", [var.uri_prefix, "stats", var.uri_suffix])
     })
   }
-  cluster_private_srv = {
-    for k, v in mongodbatlas_cluster.main : k =>
-      length(v.connection_strings) > 0 ? length(v.connection_strings[0].private_endpoint) > 0 ?
-      v.connection_strings[0].private_endpoint[0]["srv_connection_string"] : "" : ""
-  }
+  # private_endpoints  = coalesce(mongodbatlas_advanced_cluster.main.connection_strings.private_endpoint, [])
+  # connection_strings = [
+  #   for pe in local.private_endpoints : pe.srv_connection_string
+  #   if contains([for e in pe.endpoints : e.endpoint_id], local.endpoint_service_id)
+  # ]
+  # cluster_private_srv = {
+  #   for k, v in mongodbatlas_advanced_cluster.main : k =>
+  #     length(v.connection_strings) > 0 ? length(v.connection_strings[0].private_endpoint) > 0 ?
+  #     v.connection_strings[0].private_endpoint[0]["srv_connection_string"] : "" : ""
+  # }
   # cluster_pl_srv = { for k, v in local.cluster_private_endpoints : k =>
   #   [ for pe in v : v.srv_connection_string if contains([for e in pe.endpoints : e.endpoint_id], aws_vpc_endpoint.ptfe_service.id) ]
   # }
@@ -214,11 +219,27 @@ resource "mongodbatlas_database_user" "root" {
 
 # --------------- AWS EC2 ---------------------
 
+resource "tls_private_key" "generated" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "generated_key" {
+  key_name_prefix = var.client_ssh_key_name
+  public_key = tls_private_key.generated.public_key_openssh
+}
+
+resource "local_file" "private_key_pem" {
+  content         = tls_private_key.generated.private_key_pem
+  filename        = "${path.module}/${var.client_ssh_key_name}.pem"
+  file_permission = "0600"
+}
+
 resource "aws_instance" "client" {
   for_each      = local.client_map
   ami           = data.aws_ami.base.id
   instance_type = each.value["client_instance_type"]
-  key_name      = var.client_ssh_key_name
+  key_name      = aws_key_pair.generated_key.key_name
   vpc_security_group_ids = [aws_security_group.main.id]
   subnet_id = local.subnet_ids[0]
 
@@ -233,33 +254,37 @@ resource "aws_instance" "client" {
   //user_data = data.template_cloudinit_config.mongodb[each.key].rendered
 }
 
-resource "mongodbatlas_cluster" "main" {
+resource "mongodbatlas_advanced_cluster" "main" {
   for_each     = local.cluster_map
   depends_on = [mongodbatlas_privatelink_endpoint_service.main]
   project_id   = var.project_id
   name         = each.key
   cluster_type = each.value["cluster_type"]
 
-  replication_factor     = 3
+  replication_specs = [
+    {
+      region_configs = [
+        {
+          electable_specs = {
+            instance_size        = each.value["cluster_tier"]
+            node_count           = 3
+            disk_size_gb         = each.value["cluster_disk_size"]
+            provider_disk_iops   = each.value["cluster_disk_iops"]
+            provider_volume_type = each.value["cluster_volume_type"]
+          }
+          auto_scaling = {
+            compute_enabled = false
+            disk_gb_enabled = true
+          }
+          provider_name = "AWS"
+          priority      = 7
+          region_name   = "EU_WEST_1"
+        }
+      ]
+    }
+  ]
+
+  backup_enabled = each.value["cluster_backup"]
   mongo_db_major_version = each.value["cluster_version"]
   paused                 = each.value["cluster_paused"]
-  cloud_backup           = each.value["cluster_backup"]
-  num_shards = each.value["cluster_num_shards"]
-
-  //Provider Settings "block"
-  provider_name                = "AWS"
-  disk_size_gb = each.value["cluster_disk_size"]
-  provider_disk_iops          = each.value["cluster_disk_iops"]
-  provider_volume_type        = each.value["cluster_volume_type"]
-  # encryption_at_rest_provider = "NONE" // change to AWS to use CMK
-  provider_instance_size_name  = each.value["cluster_tier"]
-  provider_region_name         = "EU_WEST_1"
-  auto_scaling_compute_enabled = false
-  auto_scaling_disk_gb_enabled = false
-
-  //advanced settings
-  advanced_configuration {
-    javascript_enabled           = false
-    minimum_enabled_tls_protocol = "TLS1_2"
-  }
 }
